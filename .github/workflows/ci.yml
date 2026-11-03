@@ -1,0 +1,47 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    name: Build and test (Apple Silicon)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select macOS 26 SDK
+        run: |
+          python3 - <<'PY'
+          import glob, os, subprocess
+          candidates=[]
+          for app in glob.glob('/Applications/Xcode*.app'):
+              developer=app+'/Contents/Developer'
+              probe=subprocess.run(['xcrun','--sdk','macosx','--show-sdk-version'],env=dict(os.environ,DEVELOPER_DIR=developer),capture_output=True,text=True)
+              if probe.returncode == 0:
+                  version=tuple(map(int,probe.stdout.strip().split('.')))
+                  if version[0]>=26: candidates.append((version,developer))
+          if not candidates: raise SystemExit('A macOS 26 or newer SDK is required')
+          with open(os.environ['GITHUB_ENV'],'a') as output: output.write('DEVELOPER_DIR='+max(candidates)[1]+'\n')
+          PY
+      - name: Build local validation app (not a distribution release)
+        run: scripts/build-app.sh
+      - name: Validate release tooling
+        run: |
+          python3 -m py_compile scripts/release.py
+          python3 -m unittest discover -s tests -p 'test_*.py'
+          scripts/test-updater-metadata.sh
+          scripts/test-permissions.sh
+          scripts/test-status-menu.sh
+          scripts/test-native-bridge.sh
+          python3 scripts/check-repository.py
+          git diff --check
+      - name: Preserve bundle symlinks and executable permissions
+        run: ditto -c -k --sequesterRsrc --keepParent build/iPhonify.app build/iPhonify-validation.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: validation-build-not-for-distribution
+          path: build/iPhonify-validation.zip
+          retention-days: 7
