@@ -475,6 +475,8 @@ final class App: NSObject, NSApplicationDelegate {
  static var shared: App!
  var item: NSStatusItem!; var info: NSWindow?
  var statusMenu: StatusMenu?
+ var updatePreparation = UpdatePreparation()
+ var captureInFlight = 0
  var armed = false; var gesture = Gesture(); var overlay: NSWindow?; var transition: TransitionView?
  var pendingEnd: (Bool, Double)?; var committedDuringAnimation: [NSRunningApplication] = []
  var generation = 0; var pendingProgress = 0.0; var finishing = false
@@ -525,13 +527,30 @@ final class App: NSObject, NSApplicationDelegate {
   NotificationCenter.default.addObserver(forName:NSApplication.didBecomeActiveNotification,object:nil,queue:.main) { [weak self] _ in self?.refreshPermissionStatus() }
   UpdateChecker.shared.activity = { [weak self] in
    guard let self else { return UpdateActivity(gesturesActive:true,transitionActive:true) }
-   return UpdateActivity(gesturesActive:self.armed,transitionActive:self.overlay != nil || self.transition != nil || self.finishing || self.pendingEnd != nil || !self.hiddenApps.isEmpty || !self.minimizedWindows.isEmpty)
+   return UpdateActivity(gesturesActive:self.armed,transitionActive:self.updateWorkPending,activationIntent:self.armed)
   }
-  UpdateChecker.shared.beforeRestart = { [weak self] in self?.cancel(immediately:true); hs_stop(); Suppression.shared.set(false) }
+  UpdateChecker.shared.beforeRestart = { [weak self] authorized, done in
+   guard let self else { done(false); return }
+   self.updatePreparation.start(authorized:authorized,idle:{ [weak self] in self?.updateWorkPending == false },stop:{ [weak self] in
+    guard let self, authorized(), !self.updateWorkPending else { return false }
+    self.armed = false
+    hs_stop() // clears the native consumer before unregistering; queued frames fail the armed guard
+    self.gesture = Gesture()
+    Suppression.shared.set(false)
+    self.rebuildMenu()
+    return true
+   },completion:done)
+  }
   NotificationCenter.default.addObserver(forName:Notification.Name("iPhonifyShowAbout"),object:nil,queue:.main){[weak self] _ in self?.showAbout()}
   if !UserDefaults.standard.bool(forKey:PermissionOnboarding.completedKey) { showOnboarding() }
   escapeMonitor = NSEvent.addGlobalMonitorForEvents(matching:.keyDown) { [weak self] event in
    if event.keyCode == 53 { DispatchQueue.main.async { if self?.returnFailureReported == true { self?.restore() } else { self?.cancel() } } }
+  }
+  if let intent = UpdateRelaunch.consume() {
+   // A one-shot attempt goes through the same permission/API gates as Activate.
+   // Missing approvals leave the app OFF; permission changes never replay old intent.
+   if intent && PermissionState.current.ready && UserDefaults.standard.bool(forKey:PermissionOnboarding.completedKey) { toggle() }
+   showAbout()
   }
   log("Started; touch ABI ready")
   if CommandLine.arguments.contains("--request-screen-recording") {
@@ -618,6 +637,7 @@ final class App: NSObject, NSApplicationDelegate {
  }
  func alert(_ message: String) { let a = NSAlert(); a.messageText = "iPhonify"; a.informativeText = message; a.runModal() }
  @objc func toggle() {
+  guard !UpdateChecker.shared.restartInProgress else { rebuildMenu(); return }
   if armed { armed = false; hs_stop(); cancel(); rebuildMenu(); return }
   guard PermissionState.current.ready else { showOnboarding(); return }
   guard AXIsProcessTrusted(), Suppression.shared.install() else { alert("Allow Accessibility for iPhonify first. This lets the gesture suppress scrolling while your fingers are in the bottom activation zone."); return }
@@ -662,7 +682,7 @@ final class App: NSObject, NSApplicationDelegate {
   return window
  }
  @discardableResult func begin() -> Bool {
-  guard overlay == nil, !finishing, DesktopSpace.shared.isIdle, GestureSource.mayBegin() else { return false }
+  guard !UpdateChecker.shared.restartInProgress, overlay == nil, !finishing, DesktopSpace.shared.isIdle, GestureSource.mayBegin() else { return false }
   generation += 1; let token = generation; pendingProgress = 0
   sourceDisplayName = DesktopSpace.shared.displayName()
   let initialSpace = DesktopSpace.shared.state(name:sourceDisplayName)
@@ -682,7 +702,9 @@ final class App: NSObject, NSApplicationDelegate {
    log("Source guard rejected: no usable display"); cleanup(); return false
   }
   watchdog?.invalidate(); watchdog = Timer.scheduledTimer(withTimeInterval:CommandLine.arguments.contains("--exercise-timeout") ? 1.4 : 5,repeats:false) { [weak self] _ in self?.cancel() }
+  captureInFlight += 1
   Task { @MainActor in
+   defer { captureInFlight -= 1 }
    do {
     let content: SCShareableContent
     if let cached = contentCache { content = cached } else { content = try await SCShareableContent.excludingDesktopWindows(false,onScreenWindowsOnly:true) }
@@ -995,6 +1017,13 @@ final class App: NSObject, NSApplicationDelegate {
   let remaining = minimizedWindows.filter { saved in !finderReturn.windows.contains { CFEqual(saved,$0) } }
   AccessoryDismissal.restore(remaining); minimizedWindows = []
   rollbackApps = []; rollbackWindows = []
+ }
+ /// Read-only ownership gate: do not manufacture an acknowledgement by clearing arrays.
+ var updateWorkPending: Bool {
+  captureInFlight > 0 || screenAuthorizationInFlight || overlay != nil || transition != nil || finishing || pendingEnd != nil ||
+   dismissalInFlight || !destinationBackgrounds.isEmpty || !hiddenApps.isEmpty || !minimizedWindows.isEmpty ||
+   !committedDuringAnimation.isEmpty || !committedMinimized.isEmpty || !rollbackApps.isEmpty || !rollbackWindows.isEmpty ||
+   !DesktopSpace.shared.isIdle
  }
  func applicationShouldTerminate(_ sender:NSApplication)->NSApplication.TerminateReply {
   UpdateChecker.shared.permitsTermination() ? .terminateNow : .terminateCancel

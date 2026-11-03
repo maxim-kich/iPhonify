@@ -31,6 +31,8 @@ final class Fixture: NSObject, NSApplicationDelegate {
             require(UserDefaults.standard.string(forKey: "fixtureSetting") == "preserved", "settings preserved")
             require(!UserDefaults.standard.bool(forKey: "checkForUpdates"), "daily preference preserved")
             require(UserDefaults.standard.object(forKey: "SUUpdateGroupIdentifier") == nil, "no installation identifier")
+            require(UpdateRelaunch.consume() == (mode != "success-off"), "previous ON/OFF intent received once after replacement")
+            require(UpdateRelaunch.consume() == nil, "relaunch receipt consumed")
             record("SUCCESS replaced and relaunched 9.0.1 -> 9.0.2")
             NSApp.terminate(nil); return
         }
@@ -40,6 +42,15 @@ final class Fixture: NSObject, NSApplicationDelegate {
             self.record("CONFIRM " + button + " " + String(self.consent))
             return self.consent
         })
+        checker.beforeRestart = { [unowned self] authorized, done in
+            self.require(self.activity.activationIntent == (self.mode != "success-off"), "original intent captured before stop")
+            DispatchQueue.main.asyncAfter(deadline:.now()+0.2) {
+                guard authorized() else { done(false); return }
+                self.activity = UpdateActivity()
+                self.record("ACK fake gesture/restoration finished and listener stopped")
+                done(true)
+            }
+        }
         checker.activity = { [unowned self] in self.activity }
         observer = NotificationCenter.default.addObserver(forName: UpdateChecker.changed, object: checker, queue: .main) { [weak self] _ in
             DispatchQueue.main.async { self?.advance() }
@@ -66,11 +77,7 @@ final class Fixture: NSObject, NSApplicationDelegate {
         case .ready where !handledReady:
             handledReady = true
             require(!checker.permitsTermination(), "ordinary quit blocked before restart consent")
-            activity.gesturesActive = true; checker.openUpdate()
-            require(checker.phase == .ready && !checker.restartAuthorized, "active gestures blocks restart")
-            activity.gesturesActive = false; activity.gesturesActive = true; checker.openUpdate()
-            require(checker.phase == .ready && !checker.restartAuthorized, "gesture control blocks restart")
-            activity.gesturesActive = false
+            activity = UpdateActivity(gesturesActive:mode != "success-off",transitionActive:true,activationIntent:mode != "success-off")
             if mode == "staged-cancel" {
                 checker.cancel()
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1) { self.finishCancellation() }
@@ -78,6 +85,11 @@ final class Fixture: NSObject, NSApplicationDelegate {
                 consent = false; checker.openUpdate()
                 require(!checker.restartAuthorized, "declining restart keeps old app running")
                 consent = true; checker.openUpdate()
+                require(checker.phase == .preparing && !checker.restartAuthorized, "installation awaits fake activity acknowledgement")
+                if mode == "preparation-cancel" {
+                    checker.cancel()
+                    DispatchQueue.main.asyncAfter(deadline:.now()+1) { self.finishCancellation() }
+                }
             }
         case .idle where mode == "bad-archive" || mode == "bad-feed" || mode == "incompatible":
             require(!checker.restartAuthorized, "failure never authorizes restart")
@@ -93,6 +105,7 @@ final class Fixture: NSObject, NSApplicationDelegate {
     func finishCancellation() {
         require(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String == "9.0.1", "cancel retains old app")
         require(checker.permitsTermination(), "cancel disarms install-on-quit")
+        require(UserDefaults.standard.object(forKey:UpdateRelaunch.key) == nil, "cancel clears relaunch intent")
         record("SUCCESS cancelled " + mode)
         NSApp.terminate(nil)
     }
