@@ -17,6 +17,8 @@ Requires an Apple Silicon Mac, macOS 14 or later, and a compatible trackpad.
 3. Turn on **Activate** from the menu bar or Settings.
 4. In a native fullscreen app, place the pointer over its window and swipe upward from the trackpad’s bottom edge. Reverse the gesture or press **Escape** to cancel.
 
+With iPhonify activated, swipe down with two fingers from the top 3% of the trackpad: both fingers in the right outer third open Control Center; both in the left outer third open the Apple menu. Swipe down at least 18% of the trackpad height and lift to open, or reverse before lifting to cancel. These gestures also work on the desktop. Control Center uses macOS’s Globe–C shortcut.
+
 Settings includes activation, permission status, Launch at login, and Hide from Dock. About includes **Check for Updates**. Downloading an update and restarting each require your confirmation.
 
 ## Build

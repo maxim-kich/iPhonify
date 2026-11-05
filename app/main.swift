@@ -475,6 +475,7 @@ final class App: NSObject, NSApplicationDelegate {
  static var shared: App!
  var item: NSStatusItem!; var info: NSWindow?
  var statusMenu: StatusMenu?
+ var topGesture = TopEdgeGesture(); var topGestureActive = false
  var armed = false; var gesture = Gesture(); var overlay: NSWindow?; var transition: TransitionView?
  var pendingEnd: (Bool, Double)?; var committedDuringAnimation: [NSRunningApplication] = []
  var generation = 0; var pendingProgress = 0.0; var finishing = false
@@ -620,7 +621,7 @@ final class App: NSObject, NSApplicationDelegate {
  @objc func toggle() {
   if armed { armed = false; hs_stop(); cancel(); rebuildMenu(); return }
   guard PermissionState.current.ready else { showOnboarding(); return }
-  guard AXIsProcessTrusted(), Suppression.shared.install() else { alert("Allow Accessibility for iPhonify first. This lets the gesture suppress scrolling while your fingers are in the bottom activation zone."); return }
+  guard AXIsProcessTrusted(), Suppression.shared.install() else { alert("Allow Accessibility for iPhonify first. This lets the gesture suppress scrolling while you use an edge gesture."); return }
   armed = hs_start { xy,count,time in
    let points = (0..<Int(count)).map { CGPoint(x:Double(xy![$0*2]),y:Double(xy![$0*2+1])) }
    DispatchQueue.main.async { App.shared.receive(points,at:time) }
@@ -631,6 +632,17 @@ final class App: NSObject, NSApplicationDelegate {
  }
  func receive(_ points:[CGPoint],at time:Double) {
   guard armed, !finishing, pendingEnd == nil else { return }
+  if overlay == nil && !gesture.engaged {
+   switch topGesture.frame(points,at:time) {
+   case .none: break
+   case .begin: topGestureActive = true; Suppression.shared.set(true)
+   case .end(let target):
+    topGestureActive = false; gesture = Gesture(rejected:!points.isEmpty); Suppression.shared.set(false)
+    if let target { log("Top edge menu request accepted=\(TopEdgeMenu.open(target))") }
+    return
+   }
+   if topGestureActive { return }
+  }
   switch gesture.frame(points,at:time) {
   case .none: break
   case .begin:
@@ -894,7 +906,7 @@ final class App: NSObject, NSApplicationDelegate {
   destinationBackgrounds.forEach { $0.orderOut(nil); $0.close() }; destinationBackgrounds = []
   overlay?.orderOut(nil)
   overlay = nil; transition = nil
-  finishing = false; dragVelocity = 0; gesture = Gesture()
+  finishing = false; dragVelocity = 0; gesture = Gesture(); topGesture = TopEdgeGesture(); topGestureActive = false
   // Swallow trailing scroll momentum after lift, too.
   let token = generation
   DispatchQueue.main.asyncAfter(deadline:.now()+0.18) { if self.generation == token { Suppression.shared.set(false) } }
@@ -1004,6 +1016,7 @@ final class App: NSObject, NSApplicationDelegate {
 }
 
 func selfTest() {
+ topEdgeGestureSelfTest()
  precondition(!GestureSource.permitsContext(spaceIsDesktop:true,windowFullscreen:false),"focused app on desktop must be rejected")
  precondition(!GestureSource.permitsContext(spaceIsDesktop:true,windowFullscreen:true),"stale fullscreen focus on a desktop must be rejected")
  precondition(!GestureSource.permitsContext(spaceIsDesktop:nil,windowFullscreen:true),"unknown Space must fail closed")
