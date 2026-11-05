@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: MIT
 // Native menu geometry and separators follow MagDot by Maxim Kich.
 import AppKit
 

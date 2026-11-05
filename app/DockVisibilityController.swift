@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: GPL-3.0-only
-// Adapted from MagDot PR #8 by Maxim Kich (GPL-3.0-only).
+// SPDX-License-Identifier: MIT
+// Adapted from MagDot PR #8 by Maxim Kich; used here under MIT with the author’s authorization.
 import AppKit
 import Carbon
 

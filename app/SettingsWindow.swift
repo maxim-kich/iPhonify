@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: GPL-3.0-only
-// Settings layout adapted from MagDot by Maxim Kich (GPL-3.0-only).
+// SPDX-License-Identifier: MIT
+// Settings layout adapted from MagDot by Maxim Kich; used here under MIT with the author’s authorization.
 import AppKit
 import ApplicationServices
 import ServiceManagement
@@ -141,7 +141,7 @@ final class SettingsWindow:NSWindowController,NSWindowDelegate,NSTableViewDataSo
    let credit=CreatorLinkField(labelWithString:"");credit.frame=NSRect(x:28,y:110,width:300,height:22);credit.isSelectable=true;credit.allowsEditingTextAttributes=true
    let attribution=NSMutableAttributedString(string:"Created by Maxim Kich",attributes:[.font:NSFont.systemFont(ofSize:11),.foregroundColor:NSColor.secondaryLabelColor])
    attribution.addAttribute(.link,value:URL(string:"https://maximkich.com")!,range:(attribution.string as NSString).range(of:"Maxim Kich"));credit.attributedStringValue=attribution;content.addSubview(credit)
-   let license=SettingsLinkButton(title:"Licenses",target:self,action:#selector(openLicenses));license.isBordered=false;license.attributedTitle=NSAttributedString(string:"Licenses",attributes:[.font:NSFont.systemFont(ofSize:11),.foregroundColor:NSColor.secondaryLabelColor]);license.alignment = .right;license.frame=NSRect(x:536,y:111,width:80,height:22);content.addSubview(license)
+   let license=SettingsLinkButton(title:"MIT license",target:self,action:#selector(openLicenses));license.isBordered=false;license.attributedTitle=NSAttributedString(string:"MIT license",attributes:[.font:NSFont.systemFont(ofSize:11),.foregroundColor:NSColor.secondaryLabelColor]);license.alignment = .right;license.frame=NSRect(x:536,y:111,width:80,height:22);content.addSubview(license)
   }
   updateStatus()
  }
@@ -178,5 +178,8 @@ final class SettingsWindow:NSWindowController,NSWindowDelegate,NSTableViewDataSo
  @objc func toggleActive(){controller?.toggle();updateStatus()}
  @objc func openCreator(){NSWorkspace.shared.open(URL(string:"https://maximkich.com")!)}
  @objc func openReleases(){NSWorkspace.shared.open(URL(string:"https://github.com/maxim-kich/iPhonify/releases")!)}
- @objc func openLicenses(){NSWorkspace.shared.open(URL(string:"https://github.com/maxim-kich/iPhonify/blob/main/ACKNOWLEDGEMENTS.md")!)}
+ @objc func openLicenses(){
+  guard let legal=Bundle.main.resourceURL?.appendingPathComponent("Legal",isDirectory:true) else {return}
+  NSWorkspace.shared.open(legal)
+ }
 }

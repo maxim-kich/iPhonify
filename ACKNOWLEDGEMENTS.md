@@ -4,11 +4,13 @@ iPhonify uses the following open-source components, macOS technologies, and rese
 
 ## iPhonify
 
-iPhonify’s source code is licensed under [GNU GPL v3 only](LICENSE). The matching source archive accompanies each release. The gesture engine originated in Maxim Kich’s HomeSwipe project.
+iPhonify’s own source code is licensed under [MIT](LICENSE). Third-party components retain the terms and notices below. Previously published GPL-3.0-only releases remain available under their original terms; this change applies to the current source tree. The gesture engine originated in Maxim Kich’s HomeSwipe project.
 
 ## MagDot — interface and updater
 
-The Settings layout, onboarding structure, menu controls, and update driver adapt code from [MagDot](https://github.com/maxim-kich/MagDot), by Maxim Kich, under GPL-3.0-only. MagDot’s LED controller, privileged helper, and T3 Code integration are not included.
+The Settings layout, onboarding structure, menu controls, and update driver adapt code from [MagDot](https://github.com/maxim-kich/MagDot), by Maxim Kich. These author-owned adaptations are used in iPhonify under MIT with his authorization; this does not change MagDot’s own license. MagDot’s LED controller, privileged helper, and T3 Code integration are not included.
+
+The updater also adapts Maxim Kich’s Drag 2.0 (DragTwoZero) code under the same owner authorization. The gesture engine’s HomeSwipe origin is retained above.
 
 ## InstantSpaceSwitcher — Space gestures
 

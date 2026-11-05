@@ -10,4 +10,4 @@ Preserve desktop window state, reject uncertain fullscreen contexts, and keep ca
 
 A brief desktop blink may occur during fullscreen transitions.
 
-Do not include signing keys, Keychain exports, credentials, local logs, or private screenshots. Contributions are under GPL-3.0-only; retain third-party notices.
+Do not include signing keys, Keychain exports, credentials, local logs, or private screenshots. Contributions are under MIT; retain third-party notices.

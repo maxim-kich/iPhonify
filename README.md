@@ -41,4 +41,4 @@ Screen images stay in memory. No analytics or telemetry.
 
 [Privacy](PRIVACY.md) · [Contributing](CONTRIBUTING.md) · [Licenses & Acknowledgements](ACKNOWLEDGEMENTS.md)
 
-GPL-3.0-only. iPhonify is an independent project and is not affiliated with Apple.
+[MIT](LICENSE). Third-party components retain their own licenses; see [acknowledgements](ACKNOWLEDGEMENTS.md). iPhonify is an independent project and is not affiliated with Apple.

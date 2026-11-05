@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: MIT
 // First-run window structure adapted from MagDot by Maxim Kich.
 import AppKit
 import ApplicationServices
